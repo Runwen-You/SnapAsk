@@ -1,0 +1,76 @@
+{
+  "version": 6,
+  "cmakeMinimumRequired": {
+    "major": 3,
+    "minor": 25,
+    "patch": 0
+  },
+  "configurePresets": [
+    {
+      "name": "msvc-base",
+      "hidden": true,
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/out/build/${presetName}",
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Windows"
+      },
+      "cacheVariables": {
+        "CMAKE_PREFIX_PATH": "${sourceDir}/.deps/Qt/6.8.3/msvc2022_64",
+        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
+        "BUILD_TESTING": "ON"
+      }
+    },
+    {
+      "name": "msvc-debug",
+      "displayName": "MSVC x64 Debug",
+      "description": "Run from an x64 Native Tools command prompt with Qt 6 on CMAKE_PREFIX_PATH.",
+      "inherits": "msvc-base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug"
+      }
+    },
+    {
+      "name": "msvc-release",
+      "displayName": "MSVC x64 Release",
+      "description": "Release validation preset for the SnapAsk MVP.",
+      "inherits": "msvc-base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release"
+      }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "debug",
+      "configurePreset": "msvc-debug"
+    },
+    {
+      "name": "release",
+      "configurePreset": "msvc-release"
+    }
+  ],
+  "testPresets": [
+    {
+      "name": "debug",
+      "configurePreset": "msvc-debug",
+      "output": {
+        "outputOnFailure": true
+      },
+      "execution": {
+        "noTestsAction": "error"
+      }
+    },
+    {
+      "name": "release",
+      "configurePreset": "msvc-release",
+      "output": {
+        "outputOnFailure": true
+      },
+      "execution": {
+        "noTestsAction": "error"
+      }
+    }
+  ]
+}
