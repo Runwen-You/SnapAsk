@@ -4,7 +4,6 @@ on:
   push:
     tags:
       - "v*"
-  workflow_dispatch:
 
 permissions:
   contents: write
@@ -13,14 +12,10 @@ jobs:
   release:
     name: Build, test, and publish
     runs-on: windows-2022
-    env:
-      RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && 'v0.3.0' || github.ref_name }}
 
     steps:
       - name: Check out source
         uses: actions/checkout@v4
-        with:
-          ref: ${{ env.RELEASE_TAG }}
 
       - name: Install Qt
         uses: jurplel/install-qt-action@v4
@@ -56,7 +51,7 @@ jobs:
       - name: Preserve build artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: SnapAsk-${{ env.RELEASE_TAG }}-win-x64
+          name: SnapAsk-${{ github.ref_name }}-win-x64
           path: |
             out/portable/*.zip
             out/portable/*.sha256
@@ -78,10 +73,9 @@ jobs:
             throw "Expected one ZIP and one SHA-256 file, found $($releaseAssets.Count)."
           }
 
-          $releaseTag = $env:RELEASE_TAG
-          $version = $releaseTag -replace "^v", ""
+          $version = $env:GITHUB_REF_NAME -replace "^v", ""
           $assetPaths = $releaseAssets | ForEach-Object { $_.FullName }
-          gh release create $releaseTag $assetPaths `
+          gh release create $env:GITHUB_REF_NAME $assetPaths `
             --repo $env:GITHUB_REPOSITORY `
             --verify-tag `
             --title "SnapAsk $version" `
