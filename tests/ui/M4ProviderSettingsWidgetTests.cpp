@@ -1,6 +1,7 @@
 #include "ui/settings/ProviderSettingsWidget.h"
 #include "ui/settings/SettingsDialog.h"
 #include "ui/common/ThemeTokens.h"
+#include "ui/glass/GlassSurface.h"
 
 #include "SnapAskVersion.h"
 
@@ -573,6 +574,27 @@ void M4ProviderSettingsWidgetTests::settingsUseSidebarAndSharedGlassTokens()
     SettingsDialog dialog;
     auto* sidebar = requiredChild<QListWidget>(dialog, "settingsSidebar");
     auto* pages = requiredChild<QStackedWidget>(dialog, "settingsPages");
+    auto* sidebarSurface =
+        requiredChild<snapask::ui::glass::GlassSurface>(
+            dialog,
+            "settingsSidebarSurface");
+    QCOMPARE(
+        sidebarSurface->materialRole(),
+        snapask::ui::glass::GlassMaterialRole::Standard);
+    auto* contentSurface =
+        requiredChild<QWidget>(dialog, "settingsContentSurface");
+    QVERIFY(
+        qobject_cast<snapask::ui::glass::GlassSurface*>(contentSurface)
+        == nullptr);
+    const auto readableCards =
+        dialog.findChildren<snapask::ui::glass::GlassSurface*>(
+            QStringLiteral("SettingsCard"));
+    QVERIFY(readableCards.size() >= 4);
+    for (const auto* card : readableCards) {
+        QCOMPARE(
+            card->materialRole(),
+            snapask::ui::glass::GlassMaterialRole::ReadableContent);
+    }
     QCOMPARE(sidebar->count(), 3);
     QCOMPARE(pages->count(), 3);
     QCOMPARE(sidebar->item(0)->text(), QStringLiteral("通用"));
@@ -600,6 +622,9 @@ void M4ProviderSettingsWidgetTests::settingsUseSidebarAndSharedGlassTokens()
     const QString style = ThemeTokens::styleSheet(light);
     QVERIFY(style.contains(QStringLiteral("CaptureActionBar")));
     QVERIFY(style.contains(QStringLiteral("settingsSidebar")));
+    QVERIFY(!style.contains(QStringLiteral("%17")));
+    QVERIFY(!style.contains(QStringLiteral("%18")));
+    QVERIFY(!style.contains(QStringLiteral("%19")));
 }
 
 QTEST_MAIN(M4ProviderSettingsWidgetTests)

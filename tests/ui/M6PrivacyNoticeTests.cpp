@@ -1,4 +1,6 @@
 #include "ui/onboarding/PrivacyNoticeDialog.h"
+#include "ui/glass/GlassButton.h"
+#include "ui/glass/GlassSurface.h"
 
 #include <QDialog>
 #include <QHostAddress>
@@ -68,6 +70,23 @@ void M6PrivacyNoticeTests::requiredPrivacyFactsAreVisibleAndEntirelyLocal()
     for (const QLabel* label : labels) {
         QVERIFY(!label->openExternalLinks());
     }
+
+    auto* shell = requiredChild<snapask::ui::glass::GlassSurface>(
+        dialog,
+        "privacyGlassShell");
+    auto* details = requiredChild<snapask::ui::glass::GlassSurface>(
+        dialog,
+        "privacyNoticeDetails");
+    QCOMPARE(
+        shell->materialRole(),
+        snapask::ui::glass::GlassMaterialRole::Elevated);
+    QCOMPARE(
+        details->materialRole(),
+        snapask::ui::glass::GlassMaterialRole::ReadableContent);
+    auto* accept = qobject_cast<snapask::ui::glass::GlassButton*>(
+        requiredChild<QPushButton>(dialog, "privacyAcceptButton"));
+    QVERIFY(accept != nullptr);
+    QVERIFY(accept->isAccent());
 }
 
 void M6PrivacyNoticeTests::acceptEmitsOneDecisionAndMakesNoConnection()

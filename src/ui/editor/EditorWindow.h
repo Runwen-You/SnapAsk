@@ -14,7 +14,7 @@ class QComboBox;
 class QFont;
 class QFontComboBox;
 class QLabel;
-class QToolBar;
+class QResizeEvent;
 class QShowEvent;
 
 namespace snapask {
@@ -29,6 +29,10 @@ enum class CanvasTool;
 
 namespace snapask::ui::pin {
 class PinWindow;
+}
+
+namespace snapask::ui::glass {
+class GlassToolbar;
 }
 
 namespace snapask::ui::editor {
@@ -75,6 +79,7 @@ signals:
 protected:
     void closeEvent(QCloseEvent* event) override;
     void showEvent(QShowEvent* event) override;
+    void resizeEvent(QResizeEvent* event) override;
     bool eventFilter(QObject* watched, QEvent* event) override;
 
 private slots:
@@ -95,12 +100,15 @@ private:
     void showOperationError(const QString& title, const QString& error);
     void setStatusText(const QString& text);
     void applyCaptureDesktopGeometry();
+    void updateToolbarGeometry();
+    void scheduleToolbarBackdropUpdate();
+    void updateToolbarBackdrop();
 
     std::unique_ptr<snapask::ScreenshotSession> session_;
     std::unique_ptr<snapask::RenderedSnapshot> renderedSnapshotCache_;
     std::unique_ptr<SnapshotRenderState> snapshotRenderState_;
     snapask::ui::canvas::CanvasWidget* canvas_{nullptr};
-    QToolBar* toolbar_{nullptr};
+    snapask::ui::glass::GlassToolbar* toolbar_{nullptr};
     QActionGroup* toolActionGroup_{nullptr};
     QAction* colorAction_{nullptr};
     QAction* clearAction_{nullptr};
@@ -109,7 +117,9 @@ private:
     QFontComboBox* fontCombo_{nullptr};
     QLabel* statusLabel_{nullptr};
     QRect captureDesktopRectPx_;
+    quint64 toolbarBackdropRevision_{0};
     bool generationActive_{false};
+    bool toolbarBackdropUpdatePending_{false};
 };
 
 }  // namespace snapask::ui::editor

@@ -26,8 +26,23 @@ struct ThemeTokenSet {
     QColor accentPressed;
     QColor danger;
     QColor selection;
+    QColor glassTint;
+    QColor glassTintElevated;
+    QColor glassEdgeBright;
+    QColor glassEdgeDim;
+    QColor glassInnerHighlight;
+    QColor glassSpecular;
+    QColor glassShadow;
+    QColor glassHover;
+    QColor glassPressed;
+    QColor glassControlFill;
     int panelRadius = 18;
     int controlRadius = 10;
+    int glassRadius = 20;
+    int glassCapsuleRadius = 24;
+    int animationFastMs = 140;
+    int animationNormalMs = 200;
+    int animationSlowMs = 280;
     int animationDurationMs = 180;
     bool dark = false;
 };
@@ -44,4 +59,3 @@ public:
 };
 
 }  // namespace snapask::ui
-

@@ -1,5 +1,8 @@
 #include "ui/onboarding/PrivacyNoticeDialog.h"
 
+#include "ui/glass/GlassButton.h"
+#include "ui/glass/GlassSurface.h"
+
 #include <QFont>
 #include <QFrame>
 #include <QGuiApplication>
@@ -47,11 +50,19 @@ PrivacyNoticeDialog::PrivacyNoticeDialog(QWidget* parent)
     }
     resize(initialSize);
 
-    auto* pageLayout = new QVBoxLayout(this);
+    auto* outerLayout = new QVBoxLayout(this);
+    outerLayout->setContentsMargins(0, 0, 0, 0);
+    auto* shell = new snapask::ui::glass::GlassSurface(this);
+    shell->setObjectName(QStringLiteral("privacyGlassShell"));
+    shell->setMaterialRole(
+        snapask::ui::glass::GlassMaterialRole::Elevated);
+    outerLayout->addWidget(shell);
+
+    auto* pageLayout = new QVBoxLayout(shell);
     pageLayout->setContentsMargins(24, 22, 24, 20);
     pageLayout->setSpacing(14);
 
-    auto* title = new QLabel(tr("在继续前，请了解截图如何被处理"), this);
+    auto* title = new QLabel(tr("在继续前，请了解截图如何被处理"), shell);
     title->setObjectName(QStringLiteral("privacyNoticeTitle"));
     QFont titleFont = title->font();
     titleFont.setPointSize(17);
@@ -62,21 +73,23 @@ PrivacyNoticeDialog::PrivacyNoticeDialog(QWidget* parent)
 
     auto* introduction = new QLabel(
         tr("SnapAsk 以本地优先和最少披露为原则。你可以拒绝本说明并退出，不会因此发送任何截图或问题。"),
-        this);
+        shell);
     introduction->setObjectName(QStringLiteral("privacyNoticeIntroduction"));
     introduction->setTextFormat(Qt::PlainText);
     introduction->setWordWrap(true);
     pageLayout->addWidget(introduction);
 
-    auto* scrollArea = new QScrollArea(this);
+    auto* scrollArea = new QScrollArea(shell);
     scrollArea->setObjectName(QStringLiteral("privacyNoticeScrollArea"));
     scrollArea->setWidgetResizable(true);
     scrollArea->setFrameShape(QFrame::NoFrame);
 
-    auto* details = new QWidget(scrollArea);
+    auto* details = new snapask::ui::glass::GlassSurface(scrollArea);
     details->setObjectName(QStringLiteral("privacyNoticeDetails"));
+    details->setMaterialRole(
+        snapask::ui::glass::GlassMaterialRole::ReadableContent);
     auto* detailsLayout = new QVBoxLayout(details);
-    detailsLayout->setContentsMargins(0, 2, 8, 2);
+    detailsLayout->setContentsMargins(18, 14, 18, 14);
     detailsLayout->setSpacing(11);
     detailsLayout->addWidget(noticeItem(
         tr("默认情况下，截图和会话只驻留在内存中；SnapAsk 不会自动把它们写入磁盘或临时目录。"),
@@ -102,7 +115,7 @@ PrivacyNoticeDialog::PrivacyNoticeDialog(QWidget* parent)
 
     auto* decisionHint = new QLabel(
         tr("选择“同意并继续”表示你已阅读以上说明。选择“拒绝并退出”将关闭首次使用流程。"),
-        this);
+        shell);
     decisionHint->setObjectName(QStringLiteral("privacyNoticeDecisionHint"));
     decisionHint->setTextFormat(Qt::PlainText);
     decisionHint->setWordWrap(true);
@@ -110,10 +123,15 @@ PrivacyNoticeDialog::PrivacyNoticeDialog(QWidget* parent)
 
     auto* buttonRow = new QHBoxLayout();
     buttonRow->setSpacing(10);
-    auto* rejectButton = new QPushButton(tr("拒绝并退出"), this);
+    auto* rejectButton = new snapask::ui::glass::GlassButton(
+        tr("拒绝并退出"),
+        shell);
     rejectButton->setObjectName(QStringLiteral("privacyDeclineButton"));
     rejectButton->setAutoDefault(false);
-    auto* acceptButton = new QPushButton(tr("同意并继续"), this);
+    auto* acceptButton = new snapask::ui::glass::GlassButton(
+        tr("同意并继续"),
+        shell);
+    acceptButton->setAccent(true);
     acceptButton->setObjectName(QStringLiteral("privacyAcceptButton"));
     acceptButton->setDefault(true);
     buttonRow->addWidget(rejectButton);

@@ -2,6 +2,9 @@
 
 #include "SnapAskVersion.h"
 #include "ui/common/GlyphIcon.h"
+#include "ui/glass/GlassButton.h"
+#include "ui/glass/GlassSurface.h"
+#include "ui/glass/GlassToolButton.h"
 #include "ui/settings/ProviderSettingsWidget.h"
 
 #include <QComboBox>
@@ -42,9 +45,11 @@ QLabel* makeDescription(const QString& text, QWidget* parent)
     return label;
 }
 
-QFrame* makeGlassCard(QWidget* parent)
+snapask::ui::glass::GlassSurface* makeGlassCard(QWidget* parent)
 {
-    auto* card = new QFrame(parent);
+    auto* card = new snapask::ui::glass::GlassSurface(parent);
+    card->setMaterialRole(
+        snapask::ui::glass::GlassMaterialRole::ReadableContent);
     card->setObjectName(QStringLiteral("SettingsCard"));
     return card;
 }
@@ -62,8 +67,11 @@ SettingsDialog::SettingsDialog(QWidget* parent) : QDialog(parent) {
     shell->setContentsMargins(18, 18, 18, 18);
     shell->setSpacing(14);
 
-    auto* sidebarSurface = new QFrame(this);
-    sidebarSurface->setObjectName(QStringLiteral("GlassSurface"));
+    auto* sidebarSurface =
+        new snapask::ui::glass::GlassSurface(this);
+    sidebarSurface->setMaterialRole(
+        snapask::ui::glass::GlassMaterialRole::Standard);
+    sidebarSurface->setObjectName(QStringLiteral("settingsSidebarSurface"));
     sidebarSurface->setFixedWidth(190);
     auto* sidebarLayout = new QVBoxLayout(sidebarSurface);
     sidebarLayout->setContentsMargins(12, 16, 12, 12);
@@ -98,8 +106,8 @@ SettingsDialog::SettingsDialog(QWidget* parent) : QDialog(parent) {
     sidebarLayout->addWidget(versionLabel);
     shell->addWidget(sidebarSurface);
 
-    auto* contentSurface = new QFrame(this);
-    contentSurface->setObjectName(QStringLiteral("GlassSurface"));
+    auto* contentSurface = new QWidget(this);
+    contentSurface->setObjectName(QStringLiteral("settingsContentSurface"));
     auto* contentLayout = new QVBoxLayout(contentSurface);
     contentLayout->setContentsMargins(22, 18, 22, 20);
     contentLayout->setSpacing(14);
@@ -112,7 +120,8 @@ SettingsDialog::SettingsDialog(QWidget* parent) : QDialog(parent) {
     pageTitleLabel_->setFont(titleFont);
     titleRow->addWidget(pageTitleLabel_);
     titleRow->addStretch(1);
-    auto* closeButton = new QToolButton(contentSurface);
+    auto* closeButton =
+        new snapask::ui::glass::GlassToolButton(contentSurface);
     closeButton->setObjectName(QStringLiteral("settingsCloseButton"));
     closeButton->setIcon(glyphIcon(Glyph::Close, iconColor));
     closeButton->setToolTip(tr("关闭设置"));
@@ -176,7 +185,11 @@ SettingsDialog::SettingsDialog(QWidget* parent) : QDialog(parent) {
     hotkeyStatusLabel_->setWordWrap(true);
     hotkeyStatusLabel_->setObjectName(QStringLiteral("SecondaryLabel"));
     captureLayout->addWidget(hotkeyStatusLabel_);
-    auto* captureNowButton = new QPushButton(tr("立即截图"), captureCard);
+    auto* captureNowButton =
+        new snapask::ui::glass::GlassButton(
+            tr("立即截图"),
+            captureCard);
+    captureNowButton->setAccent(true);
     captureNowButton->setIcon(glyphIcon(Glyph::Capture, iconColor));
     captureNowButton->setAccessibleName(tr("立即开始截图"));
     captureLayout->addWidget(captureNowButton, 0, Qt::AlignRight);

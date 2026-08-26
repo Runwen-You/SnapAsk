@@ -1,7 +1,9 @@
 #include "ui/capture/CaptureOverlay.h"
 
 #include "platform/windows/MonitorCoordinateMapper.h"
+#include "platform/windows/WindowBackdrop.h"
 #include "ui/common/GlyphIcon.h"
+#include "ui/glass/GlassToolbar.h"
 
 #ifndef NOMINMAX
 #define NOMINMAX
@@ -11,10 +13,10 @@
 #endif
 #include <windows.h>
 
+#include <QAction>
+#include <QActionGroup>
 #include <QCloseEvent>
 #include <QFontMetrics>
-#include <QFrame>
-#include <QHBoxLayout>
 #include <QKeyEvent>
 #include <QMouseEvent>
 #include <QPainter>
@@ -22,7 +24,6 @@
 #include <QSet>
 #include <QShowEvent>
 #include <QTimer>
-#include <QToolButton>
 
 #include <algorithm>
 #include <cmath>
@@ -104,6 +105,7 @@ bool CaptureOverlay::beginCapture(snapask::capture::CaptureFrame frame, QString*
     pointerDragged_ = false;
     handoffAction_ = CaptureHandoffAction::Edit;
     captureActive_ = true;
+    actionBar_->clearBackdropImage();
     actionBar_->hide();
 
     show();
@@ -126,6 +128,7 @@ void CaptureOverlay::cancelCapture()
     }
     captureActive_ = false;
     selection_.clearSelection();
+    actionBar_->clearBackdropImage();
     frame_ = {};
     hoveredWindow_.reset();
     clickCandidatePx_.reset();
@@ -155,6 +158,7 @@ void CaptureOverlay::confirmSelectionWithAction(const CaptureHandoffAction actio
     captureActive_ = false;
     handoffAction_ = action;
     selection_.clearSelection();
+    actionBar_->clearBackdropImage();
     frame_ = {};
     hoveredWindow_.reset();
     clickCandidatePx_.reset();
@@ -430,6 +434,7 @@ void CaptureOverlay::closeEvent(QCloseEvent* event)
     const bool wasActive = captureActive_;
     captureActive_ = false;
     selection_.clearSelection();
+    actionBar_->clearBackdropImage();
     frame_ = {};
     hoveredWindow_.reset();
     clickCandidatePx_.reset();
@@ -605,53 +610,101 @@ void CaptureOverlay::escapeOneLevel()
 
 void CaptureOverlay::buildActionBar()
 {
-    actionBar_ = new QFrame(this);
+    actionBar_ = new snapask::ui::glass::GlassToolbar(this);
     actionBar_->setObjectName(QStringLiteral("CaptureActionBar"));
-    actionBar_->setAttribute(Qt::WA_StyledBackground, true);
-    auto* layout = new QHBoxLayout(actionBar_);
-    layout->setContentsMargins(5, 5, 5, 5);
-    layout->setSpacing(2);
+    actionBar_->setBackdropMode(
+        snapask::ui::glass::GlassBackdropMode::Image);
+    actionBar_->setButtonExtent(36);
 
     const QColor foreground = palette().color(QPalette::WindowText);
-    const auto addButton = [this, layout, foreground](
+    auto* toolGroup = new QActionGroup(actionBar_);
+    toolGroup->setExclusive(true);
+    const auto addButton = [this, foreground, toolGroup](
                                const snapask::ui::Glyph glyph,
                                const QString& tooltip,
-                               const CaptureHandoffAction action) {
-        auto* button = new QToolButton(actionBar_);
-        button->setIcon(snapask::ui::glyphIcon(glyph, foreground));
-        button->setIconSize(QSize(20, 20));
-        button->setToolTip(tooltip);
-        button->setAccessibleName(tooltip);
-        button->setAutoRaise(true);
-        connect(button, &QToolButton::clicked, this, [this, action] {
+                               const QString& objectName,
+                               const CaptureHandoffAction action,
+                               const bool selectable = false,
+                               const bool selected = false) {
+        auto* visualAction = new QAction(
+            snapask::ui::glyphIcon(glyph, foreground),
+            tooltip,
+            actionBar_);
+        visualAction->setObjectName(objectName);
+        visualAction->setToolTip(tooltip);
+        if (selectable) {
+            visualAction->setCheckable(true);
+            visualAction->setChecked(selected);
+            toolGroup->addAction(visualAction);
+        }
+        connect(visualAction, &QAction::triggered, this, [this, action] {
             confirmSelectionWithAction(action);
         });
-        layout->addWidget(button);
+        (void)actionBar_->addAction(visualAction);
     };
-    addButton(Glyph::Select, tr("进入编辑"), CaptureHandoffAction::Edit);
-    addButton(Glyph::Rectangle, tr("矩形"), CaptureHandoffAction::Rectangle);
-    addButton(Glyph::Arrow, tr("箭头"), CaptureHandoffAction::Arrow);
-    addButton(Glyph::Text, tr("文字"), CaptureHandoffAction::Text);
-    addButton(Glyph::Mosaic, tr("马赛克"), CaptureHandoffAction::Mosaic);
+    addButton(
+        Glyph::Select,
+        tr("进入编辑"),
+        QStringLiteral("captureEditAction"),
+        CaptureHandoffAction::Edit,
+        true,
+        true);
+    addButton(
+        Glyph::Rectangle,
+        tr("矩形"),
+        QStringLiteral("captureRectangleAction"),
+        CaptureHandoffAction::Rectangle,
+        true);
+    addButton(
+        Glyph::Arrow,
+        tr("箭头"),
+        QStringLiteral("captureArrowAction"),
+        CaptureHandoffAction::Arrow,
+        true);
+    addButton(
+        Glyph::Text,
+        tr("文字"),
+        QStringLiteral("captureTextAction"),
+        CaptureHandoffAction::Text,
+        true);
+    addButton(
+        Glyph::Mosaic,
+        tr("马赛克"),
+        QStringLiteral("captureMosaicAction"),
+        CaptureHandoffAction::Mosaic,
+        true);
 
-    auto* separator = new QFrame(actionBar_);
-    separator->setFrameShape(QFrame::VLine);
-    separator->setObjectName(QStringLiteral("actionBarSeparator"));
-    layout->addWidget(separator);
+    actionBar_->addSeparator();
 
-    addButton(Glyph::Copy, tr("复制截图"), CaptureHandoffAction::Copy);
-    addButton(Glyph::Save, tr("保存截图"), CaptureHandoffAction::Save);
-    addButton(Glyph::Pin, tr("贴图"), CaptureHandoffAction::Pin);
-    addButton(Glyph::Ask, tr("向 AI 提问"), CaptureHandoffAction::Ask);
+    addButton(
+        Glyph::Copy,
+        tr("复制截图"),
+        QStringLiteral("captureCopyAction"),
+        CaptureHandoffAction::Copy);
+    addButton(
+        Glyph::Save,
+        tr("保存截图"),
+        QStringLiteral("captureSaveAction"),
+        CaptureHandoffAction::Save);
+    addButton(
+        Glyph::Pin,
+        tr("贴图"),
+        QStringLiteral("capturePinAction"),
+        CaptureHandoffAction::Pin);
+    addButton(
+        Glyph::Ask,
+        tr("向 AI 提问"),
+        QStringLiteral("captureAskAction"),
+        CaptureHandoffAction::Ask);
 
-    auto* closeButton = new QToolButton(actionBar_);
-    closeButton->setIcon(glyphIcon(Glyph::Close, foreground));
-    closeButton->setIconSize(QSize(20, 20));
-    closeButton->setToolTip(tr("取消截图"));
-    closeButton->setAccessibleName(tr("取消截图"));
-    closeButton->setAutoRaise(true);
-    connect(closeButton, &QToolButton::clicked, this, &CaptureOverlay::cancelCapture);
-    layout->addWidget(closeButton);
+    auto* closeAction = new QAction(
+        glyphIcon(Glyph::Close, foreground),
+        tr("取消截图"),
+        actionBar_);
+    closeAction->setObjectName(QStringLiteral("captureCloseAction"));
+    closeAction->setToolTip(tr("取消截图"));
+    connect(closeAction, &QAction::triggered, this, &CaptureOverlay::cancelCapture);
+    (void)actionBar_->addAction(closeAction);
     actionBar_->adjustSize();
     actionBar_->hide();
 }
@@ -678,8 +731,47 @@ void CaptureOverlay::updateActionBarGeometry()
     x = std::clamp(x, 6, std::max(6, width() - barSize.width() - 6));
     y = std::clamp(y, 6, std::max(6, height() - barSize.height() - 6));
     actionBar_->setGeometry(QRect(QPoint(x, y), barSize));
+    updateActionBarBackdrop();
     actionBar_->show();
     actionBar_->raise();
+}
+
+void CaptureOverlay::updateActionBarBackdrop()
+{
+    if (actionBar_ == nullptr || !frame_.isValid()) {
+        if (actionBar_ != nullptr) {
+            actionBar_->clearBackdropImage();
+        }
+        return;
+    }
+    const bool fallback =
+        snapask::platform::windows::WindowBackdrop::isHighContrastEnabled()
+        || snapask::platform::windows::WindowBackdrop::isRemoteSession()
+        || !snapask::platform::windows::WindowBackdrop::
+                isDesktopCompositionEnabled();
+    actionBar_->setFallbackEnabled(fallback);
+
+    bool invertible = false;
+    const QTransform widgetToDesktop =
+        desktopToWidgetTransform().inverted(&invertible);
+    if (!invertible) {
+        actionBar_->clearBackdropImage();
+        return;
+    }
+    const QRect desktopRect = widgetToDesktop
+                                  .mapRect(QRectF(actionBar_->geometry()))
+                                  .toAlignedRect();
+    const QRect sourceRect = desktopRect
+                                 .translated(-frame_.desktopRectPx().topLeft())
+                                 .intersected(frame_.image().rect());
+    if (sourceRect.isEmpty()) {
+        actionBar_->clearBackdropImage();
+        return;
+    }
+    actionBar_->setBackdropImage(
+        frame_.image(),
+        sourceRect,
+        static_cast<quint64>(frame_.image().cacheKey()));
 }
 
 }  // namespace snapask::ui::capture

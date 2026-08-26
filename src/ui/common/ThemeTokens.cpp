@@ -68,8 +68,23 @@ ThemeTokenSet ThemeTokens::resolve(ThemeMode mode) {
             QColor(0, 99, 214),
             QColor(255, 69, 58),
             QColor(10, 132, 255, 96),
+            QColor(38, 40, 48, 156),
+            QColor(52, 54, 64, 196),
+            QColor(255, 255, 255, 118),
+            QColor(5, 8, 16, 116),
+            QColor(255, 255, 255, 76),
+            QColor(255, 255, 255, 82),
+            QColor(0, 0, 0, 112),
+            QColor(255, 255, 255, 30),
+            QColor(0, 0, 0, 58),
+            QColor(255, 255, 255, 34),
             18,
             10,
+            20,
+            24,
+            140,
+            200,
+            280,
             180,
             true,
         };
@@ -86,8 +101,23 @@ ThemeTokenSet ThemeTokens::resolve(ThemeMode mode) {
         QColor(0, 92, 204),
         QColor(255, 59, 48),
         QColor(0, 122, 255, 72),
+        QColor(248, 251, 255, 132),
+        QColor(255, 255, 255, 186),
+        QColor(255, 255, 255, 218),
+        QColor(72, 82, 101, 68),
+        QColor(255, 255, 255, 178),
+        QColor(255, 255, 255, 154),
+        QColor(24, 31, 46, 76),
+        QColor(255, 255, 255, 94),
+        QColor(55, 66, 86, 34),
+        QColor(255, 255, 255, 112),
         18,
         10,
+        20,
+        24,
+        140,
+        200,
+        280,
         180,
         false,
     };
@@ -110,6 +140,10 @@ QString ThemeTokens::styleSheet(const ThemeTokenSet& tokens) {
             background-color: %2;
             border: 1px solid %5;
             border-radius: %6px;
+        }
+        QFrame#providerCard, QFrame#advancedOptionsPanel,
+        QFrame#answerCodeBlock {
+            background-color: %14;
         }
         QLabel, QCheckBox, QRadioButton {
             background: transparent;
@@ -137,6 +171,14 @@ QString ThemeTokens::styleSheet(const ThemeTokenSet& tokens) {
         QLineEdit:focus, QPlainTextEdit:focus, QTextEdit:focus,
         QTextBrowser:focus, QComboBox:focus, QKeySequenceEdit:focus {
             border: 1px solid %11;
+        }
+        QPlainTextEdit#answerQuestionEdit,
+        QPlainTextEdit#answerQuestionEdit:hover,
+        QPlainTextEdit#answerQuestionEdit:focus {
+            padding: 3px 5px;
+            border: 0;
+            border-radius: 0;
+            background: transparent;
         }
         QPushButton {
             min-height: 30px;
@@ -203,8 +245,8 @@ QString ThemeTokens::styleSheet(const ThemeTokenSet& tokens) {
         }
         QListWidget#settingsSidebar::item:selected {
             color: %13;
-            background-color: %15;
-            border-color: %8;
+            background-color: %17;
+            border-color: %18;
         }
         QScrollArea, QScrollArea > QWidget > QWidget,
         QWidget#answerContent, QWidget#providerCardsContainer {
@@ -229,9 +271,9 @@ QString ThemeTokens::styleSheet(const ThemeTokenSet& tokens) {
         }
         QMenu {
             padding: 5px;
-            border: 1px solid %8;
+            border: 1px solid %18;
             border-radius: %9px;
-            background-color: %14;
+            background-color: %19;
         }
         QMenu::item {
             min-height: 26px;
@@ -264,7 +306,10 @@ QString ThemeTokens::styleSheet(const ThemeTokenSet& tokens) {
         .arg(rgba(tokens.textPrimary))
         .arg(rgba(tokens.elevatedSurface))
         .arg(rgba(tokens.selection))
-        .arg(rgba(tokens.border));
+        .arg(rgba(tokens.border))
+        .arg(rgba(tokens.glassControlFill))
+        .arg(rgba(tokens.glassEdgeBright))
+        .arg(rgba(tokens.glassTintElevated));
 }
 
 void ThemeTokens::apply(QApplication& application, ThemeMode mode) {

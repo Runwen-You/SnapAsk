@@ -12,6 +12,7 @@
 #include "ui/capture/CaptureOverlay.h"
 #include "ui/canvas/CanvasWidget.h"
 #include "ui/editor/EditorWindow.h"
+#include "ui/glass/GlassSurface.h"
 #include "ui/onboarding/PrivacyNoticeDialog.h"
 #include "ui/settings/ProviderSettingsWidget.h"
 #include "ui/settings/SettingsDialog.h"
@@ -66,6 +67,23 @@ void scrubSensitiveString(QString& value)
     value.detach();
     if (!value.isEmpty()) value.fill(QChar{});
     value.clear();
+}
+
+void syncGlassFallback(
+    QWidget* window,
+    const snapask::platform::windows::WindowBackdropResult& result)
+{
+    if (window == nullptr) {
+        return;
+    }
+    const bool solid =
+        result.mode
+        == snapask::platform::windows::BackdropMode::SolidFallback;
+    const auto surfaces =
+        window->findChildren<snapask::ui::glass::GlassSurface*>();
+    for (snapask::ui::glass::GlassSurface* surface : surfaces) {
+        surface->setFallbackEnabled(solid);
+    }
 }
 
 snapask::ai::Protocol toAiProtocol(
@@ -360,13 +378,17 @@ void AppController::openCapturedEditor(
     editor->raise();
     editor->activateWindow();
     const bool dark = ui::ThemeTokens::resolve(themeMode_).dark;
-    (void)snapask::platform::windows::WindowBackdrop::apply(
+    const auto editorBackdrop =
+        snapask::platform::windows::WindowBackdrop::apply(
         editor, {snapask::platform::windows::BackdropPreference::Mica,
                  dark, true, true});
-    (void)snapask::platform::windows::WindowBackdrop::apply(
+    syncGlassFallback(editor, editorBackdrop);
+    const auto answerBackdrop =
+        snapask::platform::windows::WindowBackdrop::apply(
         aiSession->answerWindow(),
         {snapask::platform::windows::BackdropPreference::Transient,
          dark, true, true});
+    syncGlassFallback(aiSession->answerWindow(), answerBackdrop);
 
     using snapask::ui::canvas::CanvasTool;
     using snapask::ui::capture::CaptureHandoffAction;
@@ -481,10 +503,11 @@ void AppController::openSettings() {
     refreshProviderSettingsUi();
 
     settingsDialog_->show();
-    (void)snapask::platform::windows::WindowBackdrop::apply(
+    const auto result = snapask::platform::windows::WindowBackdrop::apply(
         settingsDialog_.get(),
         {snapask::platform::windows::BackdropPreference::Mica,
          ui::ThemeTokens::resolve(themeMode_).dark, true, true});
+    syncGlassFallback(settingsDialog_.get(), result);
     settingsDialog_->raise();
     settingsDialog_->activateWindow();
 }
@@ -525,8 +548,10 @@ void AppController::applyGlassBackdrop(QWidget* window)
         return;
     }
     const bool transient = type == Qt::Tool
-        || window->objectName() == QStringLiteral("answerCardWindow");
-    (void)snapask::platform::windows::WindowBackdrop::apply(
+        || window->objectName() == QStringLiteral("answerCardWindow")
+        || window->objectName() == QStringLiteral("providerWizardDialog");
+    const auto backdropResult =
+        snapask::platform::windows::WindowBackdrop::apply(
         window,
         {transient
              ? snapask::platform::windows::BackdropPreference::Transient
@@ -534,6 +559,7 @@ void AppController::applyGlassBackdrop(QWidget* window)
          ui::ThemeTokens::resolve(themeMode_).dark,
          true,
          true});
+    syncGlassFallback(window, backdropResult);
 }
 
 void AppController::startCapture() {
@@ -622,10 +648,12 @@ bool AppController::ensurePrivacyNoticeAccepted()
     }
 
     snapask::ui::onboarding::PrivacyNoticeDialog notice;
-    (void)snapask::platform::windows::WindowBackdrop::apply(
+    const auto noticeBackdrop =
+        snapask::platform::windows::WindowBackdrop::apply(
         &notice,
         {snapask::platform::windows::BackdropPreference::Transient,
          ui::ThemeTokens::resolve(themeMode_).dark, true, true});
+    syncGlassFallback(&notice, noticeBackdrop);
     if (notice.exec() != QDialog::Accepted) return false;
 
     settings.setValue(

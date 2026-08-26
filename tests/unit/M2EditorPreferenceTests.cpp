@@ -2,7 +2,10 @@
 #include "domain/capture/ScreenshotSession.h"
 #include "ui/canvas/CanvasWidget.h"
 #include "ui/editor/EditorWindow.h"
+#include "ui/glass/GlassToolButton.h"
+#include "ui/glass/GlassToolbar.h"
 
+#include <QAction>
 #include <QApplication>
 #include <QCoreApplication>
 #include <QFontComboBox>
@@ -11,6 +14,8 @@
 #include <QTemporaryDir>
 #include <QTest>
 #include <QTimer>
+
+#include <cmath>
 
 namespace snapask::ui::editor {
 namespace {
@@ -27,6 +32,7 @@ class M2EditorPreferenceTests final : public QObject {
 private slots:
     void initTestCase();
     void cleanup();
+    void floatingToolbarOverlaysCanvasAndReusesActions();
     void selectedFontPersistsAndStylesSubsequentText();
 
 private:
@@ -48,6 +54,41 @@ void M2EditorPreferenceTests::cleanup() {
     settings.clear();
     settings.sync();
     QCOMPARE(settings.status(), QSettings::NoError);
+}
+
+void M2EditorPreferenceTests::floatingToolbarOverlaysCanvasAndReusesActions()
+{
+    EditorWindow editor(sourceImage());
+    editor.resize(760, 420);
+    editor.show();
+    QCoreApplication::processEvents();
+
+    auto* canvas = editor.canvasWidget();
+    auto* toolbar = editor.findChild<snapask::ui::glass::GlassToolbar*>(
+        QStringLiteral("editorToolbar"));
+    QVERIFY(canvas != nullptr);
+    QVERIFY(toolbar != nullptr);
+    QCOMPARE(toolbar->parentWidget(), canvas);
+    QVERIFY(canvas->rect().contains(toolbar->geometry()));
+    QVERIFY(std::abs(toolbar->geometry().center().x() - canvas->rect().center().x()) <= 1);
+    const int bottomMargin = canvas->height() - toolbar->geometry().bottom() - 1;
+    QVERIFY(bottomMargin >= 12);
+    QVERIFY(bottomMargin <= 18);
+
+    auto* selectAction = editor.findChild<QAction*>(
+        QStringLiteral("toolSelectAction"));
+    auto* selectButton = toolbar->findChild<snapask::ui::glass::GlassToolButton*>(
+        QStringLiteral("toolSelectActionButton"));
+    QVERIFY(selectAction != nullptr);
+    QVERIFY(selectButton != nullptr);
+    QCOMPARE(selectButton->defaultAction(), selectAction);
+    QVERIFY(selectAction->isChecked());
+    QCOMPARE(selectButton->accessibleName(), QStringLiteral("选择"));
+    QVERIFY(toolbar->hasBackdropImage());
+    QImage toolbarRender(toolbar->size(), QImage::Format_ARGB32_Premultiplied);
+    toolbarRender.fill(Qt::transparent);
+    toolbar->render(&toolbarRender);
+    QCOMPARE(toolbar->backdropGenerationCount(), quint64{1});
 }
 
 void M2EditorPreferenceTests::selectedFontPersistsAndStylesSubsequentText() {

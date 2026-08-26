@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.25)
 
 project(
     SnapAsk
-    VERSION 0.2.0
+    VERSION 0.3.0
     DESCRIPTION "Windows-first screenshot question and answer tool"
     LANGUAGES CXX
 )
@@ -78,6 +78,19 @@ add_library(snapask_core STATIC
     src/ui/common/ThemeTokens.h
     src/ui/common/GlyphIcon.cpp
     src/ui/common/GlyphIcon.h
+    src/ui/glass/GlassMaterial.h
+    src/ui/glass/GlassBackdropCache.cpp
+    src/ui/glass/GlassBackdropCache.h
+    src/ui/glass/GlassButton.cpp
+    src/ui/glass/GlassButton.h
+    src/ui/glass/GlassPainter.cpp
+    src/ui/glass/GlassPainter.h
+    src/ui/glass/GlassSurface.cpp
+    src/ui/glass/GlassSurface.h
+    src/ui/glass/GlassToolButton.cpp
+    src/ui/glass/GlassToolButton.h
+    src/ui/glass/GlassToolbar.cpp
+    src/ui/glass/GlassToolbar.h
     src/ui/windowing/LinkedWindowController.cpp
     src/ui/windowing/LinkedWindowController.h
 )
@@ -220,6 +233,29 @@ if(BUILD_TESTING)
 
     qt_add_executable(snapask_unit_tests
         tests/unit/M0Tests.cpp
+    )
+
+    qt_add_executable(snapask_liquid_glass_prototype
+        tests/manual/LiquidGlassPrototype.cpp
+    )
+    target_link_libraries(snapask_liquid_glass_prototype
+        PRIVATE snapask_core Qt6::Widgets
+    )
+    snapask_set_project_warnings(snapask_liquid_glass_prototype)
+
+    qt_add_executable(snapask_liquid_glass_tests
+        tests/ui/LiquidGlassTests.cpp
+    )
+    target_link_libraries(snapask_liquid_glass_tests
+        PRIVATE snapask_core Qt6::Test Qt6::Widgets
+    )
+    snapask_set_project_warnings(snapask_liquid_glass_tests)
+    add_test(NAME snapask.v03.liquid_glass COMMAND snapask_liquid_glass_tests)
+    set_tests_properties(snapask.v03.liquid_glass PROPERTIES
+        TIMEOUT 30
+        LABELS "v0.3;unit;ui"
+        ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
+        ENVIRONMENT_MODIFICATION "PATH=path_list_prepend:${SNAPASK_QT_BIN_DIR}"
     )
 
     target_link_libraries(snapask_unit_tests
@@ -727,7 +763,7 @@ if(BUILD_TESTING)
         PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/src"
     )
     target_link_libraries(snapask_m6_privacy_notice_tests
-        PRIVATE Qt6::Test Qt6::Widgets Qt6::Network
+        PRIVATE snapask_core Qt6::Test Qt6::Widgets Qt6::Network
     )
     snapask_set_project_warnings(snapask_m6_privacy_notice_tests)
     add_test(

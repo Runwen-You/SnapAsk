@@ -1,6 +1,7 @@
 #pragma once
 
 #include "ai/AiTypes.h"
+#include "ui/glass/GlassSurface.h"
 
 #include <QImage>
 #include <QMetaType>
@@ -56,7 +57,7 @@ struct AnswerTurnPresentation {
     QString detail;
 };
 
-class AnswerCardWindow final : public QWidget {
+class AnswerCardWindow final : public snapask::ui::glass::GlassSurface {
     Q_OBJECT
 
 public:
@@ -215,8 +216,8 @@ private:
     QLabel* snapshotPreviewLabel_{nullptr};
     QLabel* targetDomainLabel_{nullptr};
     MarkdownAnswerView* answerView_{nullptr};
-    QFrame* answerSurface_{nullptr};
-    QFrame* composerPanel_{nullptr};
+    QWidget* answerSurface_{nullptr};
+    QWidget* composerPanel_{nullptr};
     QPlainTextEdit* questionEdit_{nullptr};
     QPushButton* sendButton_{nullptr};
     QPushButton* stopButton_{nullptr};

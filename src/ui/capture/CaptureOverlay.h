@@ -13,11 +13,14 @@
 #include <optional>
 
 class QCloseEvent;
-class QFrame;
 class QKeyEvent;
 class QMouseEvent;
 class QPaintEvent;
 class QShowEvent;
+
+namespace snapask::ui::glass {
+class GlassToolbar;
+}
 
 namespace snapask::ui::capture {
 
@@ -84,6 +87,7 @@ private:
     void escapeOneLevel();
     void buildActionBar();
     void updateActionBarGeometry();
+    void updateActionBarBackdrop();
     void confirmSelectionWithAction(CaptureHandoffAction action);
 
     snapask::capture::CaptureFrame frame_;
@@ -92,7 +96,7 @@ private:
     std::optional<snapask::platform::windows::TopLevelWindow> hoveredWindow_;
     std::optional<QRect> clickCandidatePx_;
     QElapsedTimer hoverRefreshTimer_;
-    QFrame* actionBar_{nullptr};
+    snapask::ui::glass::GlassToolbar* actionBar_{nullptr};
     CaptureHandoffAction handoffAction_{CaptureHandoffAction::Edit};
 
     bool captureActive_{false};

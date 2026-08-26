@@ -1,4 +1,6 @@
 #include "ui/answer/AnswerCardWindow.h"
+#include "ui/glass/GlassButton.h"
+#include "ui/glass/GlassSurface.h"
 
 #include <QClipboard>
 #include <QCoreApplication>
@@ -79,6 +81,7 @@ class M3AnswerCardTests final : public QObject {
 
 private slots:
     void initTestCase();
+    void liquidGlassLayersPreserveReadableControls();
     void showingAndFocusingNeverSends();
     void ctrlEnterAndButtonEachSendExactlyOnceWithMultilineQuestion();
     void streamDeltasBatchAtFortyMillisecondsAndLateEventsAreIgnored();
@@ -97,6 +100,37 @@ void M3AnswerCardTests::initTestCase()
     static_assert(sizeof(AnswerServiceChoice) > 0);
     qRegisterMetaType<AnswerCardState>();
     qRegisterMetaType<AiStreamEvent>();
+}
+
+void M3AnswerCardTests::liquidGlassLayersPreserveReadableControls()
+{
+    AnswerCardWindow window;
+    QCOMPARE(
+        window.materialRole(),
+        snapask::ui::glass::GlassMaterialRole::Elevated);
+    QCOMPARE(
+        window.backdropMode(),
+        snapask::ui::glass::GlassBackdropMode::Native);
+
+    auto* readable = requiredChild<snapask::ui::glass::GlassSurface>(
+        window,
+        "answerReadableSurface");
+    auto* composer = requiredChild<snapask::ui::glass::GlassSurface>(
+        window,
+        "answerComposerSurface");
+    QCOMPARE(
+        readable->materialRole(),
+        snapask::ui::glass::GlassMaterialRole::ReadableContent);
+    QCOMPARE(
+        composer->materialRole(),
+        snapask::ui::glass::GlassMaterialRole::Control);
+
+    auto* send = requiredChild<QPushButton>(window, "answerSendButton");
+    auto* glassSend =
+        qobject_cast<snapask::ui::glass::GlassButton*>(send);
+    QVERIFY(glassSend != nullptr);
+    QVERIFY(glassSend->isAccent());
+    QCOMPARE(send->accessibleName(), QStringLiteral("发送"));
 }
 
 void M3AnswerCardTests::showingAndFocusingNeverSends()

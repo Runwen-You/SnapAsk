@@ -7,6 +7,7 @@
 #include "services/SnapshotRenderer.h"
 #include "ui/canvas/CanvasWidget.h"
 #include "ui/common/GlyphIcon.h"
+#include "ui/glass/GlassToolbar.h"
 #include "ui/pin/PinWindow.h"
 
 #include <QAction>
@@ -26,13 +27,15 @@
 #include <QEventLoop>
 #include <QMouseEvent>
 #include <QMessageBox>
+#include <QPainter>
 #include <QPixmap>
+#include <QRegion>
+#include <QResizeEvent>
 #include <QSettings>
 #include <QShowEvent>
 #include <QStandardPaths>
 #include <QStatusBar>
 #include <QStyle>
-#include <QToolBar>
 #include <QTimer>
 #include <QUndoStack>
 #include <QWindow>
@@ -94,11 +97,12 @@ EditorWindow::EditorWindow(
         ? static_cast<qreal>(initialWidth) / imageSize.width() : 1.0;
     const int initialCanvasHeight = std::clamp(
         qRound(imageSize.height() * scale), 220, 720);
-    resize(initialWidth, initialCanvasHeight + 48);
+    resize(initialWidth, initialCanvasHeight);
 
     canvas_ = new snapask::ui::canvas::CanvasWidget(session_.get(), this);
     setCentralWidget(canvas_);
     buildToolbar();
+    QTimer::singleShot(0, this, &EditorWindow::updateToolbarGeometry);
 
     statusLabel_ = new QLabel(this);
     statusLabel_->hide();
@@ -325,9 +329,16 @@ void EditorWindow::closeEvent(QCloseEvent* event)
 void EditorWindow::showEvent(QShowEvent* event)
 {
     QMainWindow::showEvent(event);
+    updateToolbarGeometry();
     if (captureDesktopRectPx_.isValid()) {
         QTimer::singleShot(0, this, &EditorWindow::applyCaptureDesktopGeometry);
     }
+}
+
+void EditorWindow::resizeEvent(QResizeEvent* event)
+{
+    QMainWindow::resizeEvent(event);
+    updateToolbarGeometry();
 }
 
 bool EditorWindow::eventFilter(QObject* watched, QEvent* event)
@@ -432,18 +443,18 @@ void EditorWindow::markContentChanged()
         restoreAction_->setEnabled(
             session_->hasSourceImage() && session_->cropRect() != session_->sourceImage().rect());
     }
+    scheduleToolbarBackdropUpdate();
     emit snapshotContentChanged();
 }
 
 void EditorWindow::buildToolbar()
 {
-    toolbar_ = new QToolBar(tr("截图编辑工具"), this);
-    addToolBar(Qt::BottomToolBarArea, toolbar_);
+    toolbar_ = new snapask::ui::glass::GlassToolbar(canvas_);
     toolbar_->setObjectName(QStringLiteral("editorToolbar"));
-    toolbar_->setMovable(false);
-    toolbar_->setFloatable(false);
-    toolbar_->setToolButtonStyle(Qt::ToolButtonIconOnly);
-    toolbar_->setIconSize(QSize(20, 20));
+    toolbar_->setAccessibleName(tr("截图编辑工具"));
+    toolbar_->setBackdropMode(
+        snapask::ui::glass::GlassBackdropMode::Image);
+    toolbar_->setButtonExtent(36);
     toolbar_->installEventFilter(this);
 
     const QColor iconColor = palette().color(QPalette::WindowText);
@@ -465,12 +476,16 @@ void EditorWindow::buildToolbar()
         } else if (tool == snapask::ui::canvas::CanvasTool::Mosaic) {
             glyph = snapask::ui::Glyph::Mosaic;
         }
-        QAction* action = toolbar_->addAction(glyphIcon(glyph, iconColor), label);
+        auto* action = new QAction(
+            glyphIcon(glyph, iconColor),
+            label,
+            this);
         action->setObjectName(objectName);
         action->setCheckable(true);
         action->setData(static_cast<int>(tool));
         toolActionGroup_->addAction(action);
         connect(action, &QAction::triggered, this, [this, tool] { setCanvasTool(tool); });
+        (void)toolbar_->addAction(action);
         return action;
     };
 
@@ -497,10 +512,13 @@ void EditorWindow::buildToolbar()
     selectAction->setChecked(true);
 
     toolbar_->addSeparator();
-    colorAction_ = toolbar_->addAction(
-        glyphIcon(Glyph::Color, iconColor), tr("颜色"));
+    colorAction_ = new QAction(
+        glyphIcon(Glyph::Color, iconColor),
+        tr("颜色"),
+        this);
     colorAction_->setObjectName(QStringLiteral("annotationColorAction"));
     connect(colorAction_, &QAction::triggered, this, &EditorWindow::chooseColor);
+    (void)toolbar_->addAction(colorAction_);
 
     lineWidthCombo_ = new QComboBox(toolbar_);
     lineWidthCombo_->setObjectName(QStringLiteral("annotationLineWidthCombo"));
@@ -555,59 +573,80 @@ void EditorWindow::buildToolbar()
     undoAction->setIcon(glyphIcon(Glyph::Undo, iconColor));
     undoAction->setObjectName(QStringLiteral("undoAction"));
     undoAction->setShortcut(QKeySequence::Undo);
-    toolbar_->addAction(undoAction);
+    (void)toolbar_->addAction(undoAction);
     QAction* redoAction = session_->undoStack().createRedoAction(this, tr("重做"));
     redoAction->setIcon(glyphIcon(Glyph::Redo, iconColor));
     redoAction->setObjectName(QStringLiteral("redoAction"));
     redoAction->setShortcuts(
         {QKeySequence::Redo, QKeySequence(QStringLiteral("Ctrl+Shift+Z"))});
-    toolbar_->addAction(redoAction);
+    (void)toolbar_->addAction(redoAction);
 
-    clearAction_ = toolbar_->addAction(
-        glyphIcon(Glyph::Clear, iconColor), tr("清除标注"));
+    clearAction_ = new QAction(
+        glyphIcon(Glyph::Clear, iconColor),
+        tr("清除标注"),
+        this);
     clearAction_->setObjectName(QStringLiteral("clearAnnotationsAction"));
     clearAction_->setEnabled(!session_->annotations().isEmpty());
     connect(clearAction_, &QAction::triggered, this, &EditorWindow::clearAnnotations);
+    (void)toolbar_->addAction(clearAction_);
 
-    restoreAction_ = toolbar_->addAction(
-        glyphIcon(Glyph::Restore, iconColor), tr("恢复原图"));
+    restoreAction_ = new QAction(
+        glyphIcon(Glyph::Restore, iconColor),
+        tr("恢复原图"),
+        this);
     restoreAction_->setObjectName(QStringLiteral("restoreOriginalAction"));
     restoreAction_->setEnabled(
         session_->hasSourceImage() && session_->cropRect() != session_->sourceImage().rect());
     connect(restoreAction_, &QAction::triggered, this, &EditorWindow::restoreOriginal);
+    (void)toolbar_->addAction(restoreAction_);
 
     toolbar_->addSeparator();
-    QAction* copyAction = toolbar_->addAction(
+    auto* copyAction = new QAction(
         glyphIcon(Glyph::Copy, iconColor),
-        tr("复制"));
+        tr("复制"),
+        this);
     copyAction->setObjectName(QStringLiteral("copySnapshotAction"));
     copyAction->setShortcut(QKeySequence::Copy);
     connect(copyAction, &QAction::triggered, this, &EditorWindow::copyFromAction);
+    (void)toolbar_->addAction(copyAction);
 
-    QAction* saveAction = toolbar_->addAction(
+    auto* saveAction = new QAction(
         glyphIcon(Glyph::Save, iconColor),
-        tr("保存"));
+        tr("保存"),
+        this);
     saveAction->setObjectName(QStringLiteral("saveSnapshotAction"));
     saveAction->setShortcut(QKeySequence::Save);
     connect(saveAction, &QAction::triggered, this, &EditorWindow::chooseSaveLocation);
+    (void)toolbar_->addAction(saveAction);
 
-    QAction* pinAction = toolbar_->addAction(
-        glyphIcon(Glyph::Pin, iconColor), tr("贴图"));
+    auto* pinAction = new QAction(
+        glyphIcon(Glyph::Pin, iconColor),
+        tr("贴图"),
+        this);
     pinAction->setObjectName(QStringLiteral("pinSnapshotAction"));
     connect(pinAction, &QAction::triggered, this, &EditorWindow::pinFromAction);
+    (void)toolbar_->addAction(pinAction);
 
     toolbar_->addSeparator();
-    QAction* askAction = toolbar_->addAction(
-        glyphIcon(Glyph::Ask, iconColor), tr("提问"));
+    auto* askAction = new QAction(
+        glyphIcon(Glyph::Ask, iconColor),
+        tr("提问"),
+        this);
     askAction->setObjectName(QStringLiteral("askSnapshotAction"));
     askAction->setToolTip(tr("打开问题输入；在回答卡中按 Ctrl+Enter 发送"));
     connect(askAction, &QAction::triggered, this, &EditorWindow::askRequested);
+    (void)toolbar_->addAction(askAction);
 
-    QAction* closeAction = toolbar_->addAction(
-        glyphIcon(Glyph::Close, iconColor), tr("关闭"));
+    auto* closeAction = new QAction(
+        glyphIcon(Glyph::Close, iconColor),
+        tr("关闭"),
+        this);
     closeAction->setObjectName(QStringLiteral("closeEditorAction"));
     closeAction->setShortcut(QKeySequence(Qt::Key_Escape));
     connect(closeAction, &QAction::triggered, this, &EditorWindow::close);
+    (void)toolbar_->addAction(closeAction);
+    toolbar_->adjustSize();
+    setMinimumWidth(toolbar_->sizeHint().width() + 16);
 }
 
 void EditorWindow::setCanvasTool(snapask::ui::canvas::CanvasTool tool)
@@ -680,8 +719,6 @@ void EditorWindow::applyCaptureDesktopGeometry()
     }
 
     const qreal ratio = std::max<qreal>(1.0, devicePixelRatioF());
-    const int toolbarHeightPx = toolbar_ != nullptr
-        ? qRound((toolbar_->sizeHint().height() + 2) * ratio) : qRound(46 * ratio);
     const int minimumWidthPx = toolbar_ != nullptr
         ? qRound(toolbar_->sizeHint().width() * ratio) : 480;
     const QRect desktop(
@@ -691,7 +728,7 @@ void EditorWindow::applyCaptureDesktopGeometry()
         GetSystemMetrics(SM_CYVIRTUALSCREEN));
     QSize requested(
         std::max(captureDesktopRectPx_.width(), minimumWidthPx),
-        captureDesktopRectPx_.height() + toolbarHeightPx);
+        captureDesktopRectPx_.height());
     QPoint position = captureDesktopRectPx_.topLeft();
     if (desktop.isValid()) {
         requested.setWidth(std::min(requested.width(), desktop.width()));
@@ -709,6 +746,64 @@ void EditorWindow::applyCaptureDesktopGeometry()
         requested.width(),
         requested.height(),
         SWP_NOOWNERZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED);
+}
+
+void EditorWindow::updateToolbarGeometry()
+{
+    if (toolbar_ == nullptr || canvas_ == nullptr) {
+        return;
+    }
+    const QSize toolbarSize = toolbar_->sizeHint();
+    const int x = std::max(8, (canvas_->width() - toolbarSize.width()) / 2);
+    const int y = std::max(8, canvas_->height() - toolbarSize.height() - 14);
+    toolbar_->setGeometry(QRect(QPoint(x, y), toolbarSize));
+    toolbar_->raise();
+    scheduleToolbarBackdropUpdate();
+}
+
+void EditorWindow::scheduleToolbarBackdropUpdate()
+{
+    if (toolbarBackdropUpdatePending_) {
+        return;
+    }
+    toolbarBackdropUpdatePending_ = true;
+    QTimer::singleShot(0, this, [this] {
+        toolbarBackdropUpdatePending_ = false;
+        updateToolbarBackdrop();
+    });
+}
+
+void EditorWindow::updateToolbarBackdrop()
+{
+    if (toolbar_ == nullptr || canvas_ == nullptr) {
+        return;
+    }
+    const QRect sourceRect = toolbar_->geometry().intersected(canvas_->rect());
+    if (sourceRect.isEmpty()) {
+        toolbar_->clearBackdropImage();
+        return;
+    }
+    const qreal ratio = std::max<qreal>(1.0, canvas_->devicePixelRatioF());
+    const QSize physicalSize(
+        std::max(1, qRound(sourceRect.width() * ratio)),
+        std::max(1, qRound(sourceRect.height() * ratio)));
+    QImage localBackdrop(
+        physicalSize,
+        QImage::Format_ARGB32_Premultiplied);
+    localBackdrop.setDevicePixelRatio(ratio);
+    localBackdrop.fill(Qt::transparent);
+    QPainter painter(&localBackdrop);
+    canvas_->render(
+        &painter,
+        -sourceRect.topLeft(),
+        QRegion(sourceRect),
+        QWidget::DrawWindowBackground);
+    painter.end();
+    ++toolbarBackdropRevision_;
+    toolbar_->setBackdropImage(
+        localBackdrop,
+        localBackdrop.rect(),
+        toolbarBackdropRevision_);
 }
 
 }  // namespace snapask::ui::editor

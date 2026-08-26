@@ -35,6 +35,7 @@
 #include <QtConcurrentRun>
 
 #include "ui/common/GlyphIcon.h"
+#include "ui/glass/GlassButton.h"
 
 #include <algorithm>
 #include <cmath>
@@ -619,7 +620,7 @@ private:
 };
 
 AnswerCardWindow::AnswerCardWindow(QWidget* parent)
-    : QWidget(
+    : snapask::ui::glass::GlassSurface(
           parent,
           Qt::Tool | Qt::WindowStaysOnTopHint | Qt::FramelessWindowHint)
 {
@@ -627,6 +628,8 @@ AnswerCardWindow::AnswerCardWindow(QWidget* parent)
     setWindowTitle(tr("SnapAsk 回答"));
     setMinimumSize(360, 300);
     resize(460, 560);
+    setMaterialRole(snapask::ui::glass::GlassMaterialRole::Elevated);
+    setBackdropMode(snapask::ui::glass::GlassBackdropMode::Native);
 
     batchTimer_ = new QTimer(this);
     batchTimer_->setSingleShot(true);
@@ -1037,7 +1040,7 @@ bool AnswerCardWindow::eventFilter(QObject* watched, QEvent* event)
             return true;
         }
     }
-    return QWidget::eventFilter(watched, event);
+    return snapask::ui::glass::GlassSurface::eventFilter(watched, event);
 }
 
 void AnswerCardWindow::closeEvent(QCloseEvent* event)
@@ -1145,7 +1148,7 @@ void AnswerCardWindow::buildCompactUi()
     versionLabel_ = new QLabel(this);
     versionLabel_->setObjectName(QStringLiteral("answerVersionLabel"));
     titleLayout->addWidget(versionLabel_);
-    auto* closeButton = new QPushButton(this);
+    auto* closeButton = new snapask::ui::glass::GlassButton(this);
     closeButton->setObjectName(QStringLiteral("answerCloseButton"));
     closeButton->setIcon(glyphIcon(Glyph::Close, iconColor));
     closeButton->setFlat(true);
@@ -1197,8 +1200,12 @@ void AnswerCardWindow::buildCompactUi()
     linkToggleButton_->hide();
     updateLinkControl();
 
-    answerSurface_ = new QFrame(this);
-    answerSurface_->setObjectName(QStringLiteral("GlassCard"));
+    auto* readableSurface =
+        new snapask::ui::glass::GlassSurface(this);
+    readableSurface->setMaterialRole(
+        snapask::ui::glass::GlassMaterialRole::ReadableContent);
+    readableSurface->setObjectName(QStringLiteral("answerReadableSurface"));
+    answerSurface_ = readableSurface;
     auto* answerLayout = new QGridLayout(answerSurface_);
     answerLayout->setContentsMargins(4, 4, 4, 4);
     answerView_ = new MarkdownAnswerView(answerSurface_);
@@ -1211,7 +1218,7 @@ void AnswerCardWindow::buildCompactUi()
     answerView_->viewport()->setMouseTracking(true);
     answerLayout->addWidget(answerView_, 0, 0);
 
-    copyButton_ = new QPushButton(answerSurface_);
+    copyButton_ = new snapask::ui::glass::GlassButton(answerSurface_);
     copyButton_->setObjectName(QStringLiteral("answerCopyButton"));
     copyButton_->setIcon(glyphIcon(Glyph::Copy, iconColor));
     copyButton_->setFixedSize(34, 34);
@@ -1237,8 +1244,12 @@ void AnswerCardWindow::buildCompactUi()
     rootLayout->addWidget(snapshotPreviewPanel_);
     snapshotPreviewPanel_->hide();
 
-    composerPanel_ = new QFrame(this);
-    composerPanel_->setObjectName(QStringLiteral("GlassCard"));
+    auto* promptSurface =
+        new snapask::ui::glass::GlassSurface(this);
+    promptSurface->setMaterialRole(
+        snapask::ui::glass::GlassMaterialRole::Control);
+    promptSurface->setObjectName(QStringLiteral("answerComposerSurface"));
+    composerPanel_ = promptSurface;
     auto* composerLayout = new QHBoxLayout(composerPanel_);
     composerLayout->setContentsMargins(7, 6, 7, 6);
     composerLayout->setSpacing(6);
@@ -1252,14 +1263,20 @@ void AnswerCardWindow::buildCompactUi()
     composerLayout->addWidget(questionEdit_, 1);
 
     auto* actionColumn = new QVBoxLayout();
-    sendButton_ = new QPushButton(composerPanel_);
+    auto* sendGlassButton =
+        new snapask::ui::glass::GlassButton(composerPanel_);
+    sendGlassButton->setAccent(true);
+    sendButton_ = sendGlassButton;
     sendButton_->setObjectName(QStringLiteral("answerSendButton"));
     sendButton_->setIcon(glyphIcon(Glyph::Send, iconColor));
     sendButton_->setFixedSize(36, 36);
     sendButton_->setToolTip(tr("发送"));
     sendButton_->setAccessibleName(tr("发送"));
     sendButton_->setDefault(true);
-    stopButton_ = new QPushButton(composerPanel_);
+    auto* stopGlassButton =
+        new snapask::ui::glass::GlassButton(composerPanel_);
+    stopGlassButton->setDanger(true);
+    stopButton_ = stopGlassButton;
     stopButton_->setObjectName(QStringLiteral("answerStopButton"));
     stopButton_->setIcon(glyphIcon(Glyph::Stop, iconColor));
     stopButton_->setFixedSize(36, 36);

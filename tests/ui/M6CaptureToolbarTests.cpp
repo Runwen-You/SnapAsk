@@ -1,8 +1,8 @@
 #include "domain/capture/CaptureFrame.h"
 #include "ui/capture/CaptureOverlay.h"
+#include "ui/glass/GlassToolbar.h"
 
 #include <QApplication>
-#include <QFrame>
 #include <QSignalSpy>
 #include <QTest>
 #include <QToolButton>
@@ -45,10 +45,11 @@ void M6CaptureToolbarTests::selectionShowsCompactActionBarAndPreservesRequestedT
     overlay.setSelectionPx(QRect(24, 18, 220, 150));
     QCoreApplication::processEvents();
 
-    auto* actionBar = overlay.findChild<QFrame*>(
+    auto* actionBar = overlay.findChild<snapask::ui::glass::GlassToolbar*>(
         QStringLiteral("CaptureActionBar"));
     QVERIFY(actionBar != nullptr);
     QVERIFY(actionBar->isVisible());
+    QVERIFY(actionBar->hasBackdropImage());
     const auto buttons = actionBar->findChildren<QToolButton*>();
     QVERIFY(buttons.size() >= 10);
 
@@ -65,6 +66,7 @@ void M6CaptureToolbarTests::selectionShowsCompactActionBarAndPreservesRequestedT
     QCOMPARE(confirmed.size(), 1);
     QCOMPARE(overlay.takeHandoffAction(), CaptureHandoffAction::Rectangle);
     QVERIFY(!overlay.isCaptureActive());
+    QVERIFY(!actionBar->hasBackdropImage());
 }
 
 int main(int argc, char* argv[])
