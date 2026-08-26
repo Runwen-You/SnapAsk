@@ -35,7 +35,7 @@ ctest --preset release --output-on-failure
 完成 Release 构建后运行：
 
 ```powershell
-.\scripts\package-portable.ps1 -BuildDirectory .\out\build\m6-release
+.\scripts\package-portable.ps1 -BuildDirectory .\out\build\msvc-release
 ```
 
 脚本只接受 x64 Release 可执行文件，通过 `windeployqt` 复制运行库，拒绝覆盖现有输出，并生成 ZIP 与 SHA-256。它会拒绝把服务配置、日志、转储、PDB 或用户凭据状态带入发布包。

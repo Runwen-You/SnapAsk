@@ -1,0 +1,82 @@
+name: Build Windows Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Build, test, and publish
+    runs-on: windows-2022
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Install Qt
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: "6.8.3"
+          host: windows
+          target: desktop
+          arch: win64_msvc2022_64
+          modules: qtsvg
+          dir: "${{ github.workspace }}/.deps/Qt"
+          cache: true
+
+      - name: Enable MSVC x64
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+
+      - name: Configure Release
+        run: cmake --preset msvc-release -DSNAPASK_WARNINGS_AS_ERRORS=ON
+
+      - name: Build Release
+        run: cmake --build --preset release
+
+      - name: Run tests
+        run: ctest --preset release --output-on-failure
+
+      - name: Create portable ZIP
+        shell: pwsh
+        run: |
+          .\scripts\package-portable.ps1 `
+            -BuildDirectory .\out\build\msvc-release
+
+      - name: Preserve build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: SnapAsk-${{ github.ref_name }}-win-x64
+          path: |
+            out/portable/*.zip
+            out/portable/*.sha256
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Publish GitHub Release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $releaseAssets = @(
+            Get-ChildItem -LiteralPath .\out\portable -File |
+              Where-Object {
+                $_.Extension -eq ".zip" -or $_.Name.EndsWith(".sha256")
+              }
+          )
+          if ($releaseAssets.Count -ne 2) {
+            throw "Expected one ZIP and one SHA-256 file, found $($releaseAssets.Count)."
+          }
+
+          $version = $env:GITHUB_REF_NAME -replace "^v", ""
+          $assetPaths = $releaseAssets | ForEach-Object { $_.FullName }
+          gh release create $env:GITHUB_REF_NAME $assetPaths `
+            --repo $env:GITHUB_REPOSITORY `
+            --verify-tag `
+            --title "SnapAsk $version" `
+            --generate-notes
